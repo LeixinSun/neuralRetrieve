@@ -1,0 +1,120 @@
+# Neuro-Gated Graph Memory System - 配置文件
+# 所有可调节的参数都在这里
+
+# ==================== API配置 ====================
+api:
+  # OpenAI API Key（必需）
+  openai_api_key: "your-openai-api-key-here"
+
+  # LLM配置
+  llm:
+    name: "gpt-4o-mini"                    # LLM模型名称
+    base_url: null                         # 自定义API URL（null=使用默认OpenAI，例如：http://localhost:8000/v1）
+    temperature: 0.0                       # 采样温度（0.0-2.0）
+    max_new_tokens: 2048                   # 最大生成token数
+
+  # Embedding配置
+  embedding:
+    model_name: "text-embedding-3-small"   # Embedding模型名称
+    base_url: null                         # 自定义Embedding API URL
+    batch_size: 32                         # 批处理大小
+    dimension: 1536                        # 向量维度
+
+# ==================== 检索参数 ====================
+retrieval:
+  # 初始锚点配置
+  top_k_anchors: 5                         # 向量搜索返回的初始锚点数量
+  anchor_energy_distribution: "softmax"    # 初始能量分配方式: softmax, normalized, uniform
+
+  # 扩散配置
+  max_hops: 2                              # 最大扩散跳数
+  energy_decay_rate: 0.5                   # 每跳能量衰减率（0.0-1.0）
+
+  # 合并策略
+  merge_strategy: "weighted_average"       # 合并策略: weighted_average, replace, accumulate, max
+  merge_old_weight: 0.7                    # 加权平均中旧能量的权重（0.0-1.0）
+
+  # 最终返回
+  top_n_retrieval: 3                       # 最终返回的结果数量
+
+# ==================== 图构建参数 ====================
+graph:
+  # SIM边配置（语义相似边）
+  sim_edges:
+    max_neighbors_intra_doc: 3             # 文档内最大相似边数量
+    max_neighbors_inter_doc: 2             # 跨文档最大相似边数量
+
+  # CAUSE边配置（因果边）
+  cause_edges:
+    window_size: 5                         # 滑动窗口大小
+    neighbor_hops: 1                       # 图邻居扩展跳数
+
+  # 节点类型配置
+  nodes:
+    use_entity_nodes: true                 # 是否创建Entity节点
+    use_chunk_nodes: true                  # 是否创建Chunk节点
+    use_triple_nodes: false                # 是否创建Triple节点（暂不支持）
+
+# ==================== 可塑性参数 ====================
+plasticity:
+  # LTP配置（长时程增强）
+  ltp:
+    learning_rate: 0.1                     # Hebbian学习率（0.0-1.0）
+    activation_threshold: 0.05             # 边激活阈值
+    track_activation_path: true            # 是否追踪激活路径
+
+  # LTD配置（长时程抑制）
+  ltd:
+    time_decay_factor: 0.99                # 时间衰减系数（0.0-1.0）
+    min_edge_weight: 0.1                   # 最小边权重阈值
+    decay_sim_edges: false                 # SIM边是否衰减（false=不衰减）
+
+# ==================== 文本处理参数 ====================
+text_processing:
+  # 文档切片配置
+  chunking:
+    chunk_size: 512                        # 每块token数
+    chunk_overlap: 128                     # 重叠token数
+    encoding_name: "cl100k_base"           # Tokenizer编码名称
+
+# ==================== 存储配置 ====================
+storage:
+  save_dir: "outputs"                      # 输出目录
+  force_index_from_scratch: false          # 是否强制从头重建
+  cache_llm_responses: true                # 是否缓存LLM响应
+
+# ==================== 系统配置 ====================
+system:
+  # 日志配置
+  log_level: "INFO"                        # 日志级别: DEBUG, INFO, WARNING, ERROR
+  verbose: false                           # 是否输出详细信息
+
+  # 性能配置
+  num_workers: 4                           # 并行工作进程数（暂未使用）
+
+  # 环境配置
+  hf_home: null                            # Hugging Face缓存目录
+  cuda_visible_devices: null               # CUDA设备ID（如"0,1,2,3"）
+
+# ==================== 实验配置 ====================
+experiment:
+  # 数据集配置
+  dataset_dir: "dataset"                   # 数据集目录
+
+  # 评估配置
+  evaluation:
+    compute_retrieval_recall: true         # 是否计算检索召回率
+    compute_qa_metrics: true               # 是否计算QA指标
+
+# ==================== 高级配置 ====================
+advanced:
+  # 调试配置
+  debug:
+    save_intermediate_results: false       # 是否保存中间结果
+    visualize_graph: false                 # 是否可视化图结构
+
+  # 优化配置
+  optimization:
+    skip_cause_edges: false                # 是否跳过CAUSE边构建（加速）
+    use_cache_aggressively: true           # 是否积极使用缓存
+    batch_llm_calls: true                  # 是否批量调用LLM

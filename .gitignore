@@ -1,0 +1,39 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+refer/
+# Virtual environments
+.venv
+venv/
+env/
+
+# Output directories
+outputs/
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Sensitive files (DO NOT COMMIT)
+.env
+config.local.yaml
+*_local.yaml
+
+
