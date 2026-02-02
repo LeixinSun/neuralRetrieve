@@ -169,11 +169,35 @@ class NeuroGraphMemory:
         """
         Provide feedback on relevant nodes (for additional LTP).
 
+        This method strengthens edges between the specified relevant nodes,
+        implementing explicit user feedback for Hebbian learning.
+
         Args:
             relevant_node_ids: List of node IDs that were relevant
         """
-        # TODO: Implement feedback-based reinforcement
         logger.info(f"Received feedback for {len(relevant_node_ids)} nodes")
+
+        if len(relevant_node_ids) < 2:
+            logger.debug("Need at least 2 nodes for feedback reinforcement")
+            return
+
+        # Find edges between the relevant nodes and reinforce them
+        edges_to_reinforce = []
+
+        for i, source_id in enumerate(relevant_node_ids):
+            for target_id in relevant_node_ids[i + 1:]:
+                # Check if edge exists in either direction
+                edge = self.graph_store.get_edge(source_id, target_id)
+                if edge:
+                    edges_to_reinforce.append(edge)
+
+                edge_reverse = self.graph_store.get_edge(target_id, source_id)
+                if edge_reverse:
+                    edges_to_reinforce.append(edge_reverse)
+
+        if edges_to_reinforce:
+            self.plasticity.reinforce_path(edges_to_reinforce)
+            logger.info(f"Reinforced {len(edges_to_reinforce)} edges based on feedback")
 
     def maintenance(self):
         """

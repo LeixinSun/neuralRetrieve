@@ -87,7 +87,7 @@ class DatasetLoader:
         for sample in samples:
             if "paragraphs" in sample:
                 docs = [
-                    f"{p['title']}\n{p.get('text', p.get('paragraph_text', ''))}"
+                    f"{p['title']}\n\n{p.get('text', p.get('paragraph_text', ''))}"
                     for p in sample["paragraphs"]
                     if p.get("is_supporting", True)
                 ]

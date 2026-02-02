@@ -3,8 +3,11 @@ Evaluation metrics for retrieval and QA.
 """
 
 import logging
-from typing import List
+from typing import List, Dict, Tuple
 import re
+import json
+import os
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +23,8 @@ class RetrievalRecall:
         Compute average recall.
 
         Args:
-            retrieved_docs: List of retrieved document lists
-            gold_docs: List of gold document lists
+            retrieved_docs: List of retrieved document lists (can be chunks)
+            gold_docs: List of gold document lists (full documents)
 
         Returns:
             Average recall score
@@ -35,22 +38,73 @@ class RetrievalRecall:
             if not gold:
                 continue
 
-            # Normalize texts for comparison
-            retrieved_set = set([RetrievalRecall._normalize(doc) for doc in retrieved])
-            gold_set = set([RetrievalRecall._normalize(doc) for doc in gold])
+            # Check if any retrieved chunk is contained in any gold doc
+            hits = 0
+            for gold_doc in gold:
+                gold_norm = RetrievalRecall._normalize(gold_doc)
+                for ret_doc in retrieved:
+                    ret_norm = RetrievalRecall._normalize(ret_doc)
+                    # Check if retrieved chunk is part of gold doc (substring match)
+                    if ret_norm in gold_norm or gold_norm in ret_norm:
+                        hits += 1
+                        break
 
-            # Compute recall
-            overlap = len(retrieved_set & gold_set)
-            recall = overlap / len(gold_set) if gold_set else 0.0
-
+            recall = hits / len(gold) if gold else 0.0
             recalls.append(recall)
 
         return sum(recalls) / len(recalls) if recalls else 0.0
 
     @staticmethod
+    def compute_at_k(
+        retrieved_docs: List[List[str]],
+        gold_docs: List[List[str]],
+        k_list: List[int] = [1, 2, 5, 10]
+    ) -> Dict[str, float]:
+        """
+        Compute Recall@k for multiple k values.
+
+        Args:
+            retrieved_docs: List of retrieved document lists (can be chunks)
+            gold_docs: List of gold document lists (full documents)
+            k_list: List of k values to compute recall at
+
+        Returns:
+            Dictionary with Recall@k scores
+        """
+        if not retrieved_docs or not gold_docs:
+            return {f"Recall@{k}": 0.0 for k in k_list}
+
+        results = {f"Recall@{k}": [] for k in k_list}
+
+        for retrieved, gold in zip(retrieved_docs, gold_docs):
+            if not gold:
+                continue
+
+            for k in k_list:
+                retrieved_at_k = retrieved[:k] if len(retrieved) >= k else retrieved
+
+                # Check if any retrieved chunk matches any gold doc
+                hits = 0
+                for gold_doc in gold:
+                    gold_norm = RetrievalRecall._normalize(gold_doc)
+                    for ret_doc in retrieved_at_k:
+                        ret_norm = RetrievalRecall._normalize(ret_doc)
+                        # Substring match: chunk in doc or doc in chunk
+                        if ret_norm in gold_norm or gold_norm in ret_norm:
+                            hits += 1
+                            break
+
+                recall = hits / len(gold) if gold else 0.0
+                results[f"Recall@{k}"].append(recall)
+
+        # Average across all queries
+        return {key: sum(vals) / len(vals) if vals else 0.0 for key, vals in results.items()}
+
+    @staticmethod
     def _normalize(text: str) -> str:
-        """Normalize text for comparison"""
-        return text.lower().strip()
+        """Normalize text for comparison - collapse whitespace"""
+        # Collapse all whitespace (newlines, tabs, multiple spaces) to single space
+        return ' '.join(text.lower().split())
 
 
 class QAExactMatch:
@@ -162,4 +216,118 @@ class QAF1Score:
         return text
 
 
-__all__ = ["RetrievalRecall", "QAExactMatch", "QAF1Score"]
+class ExperimentResults:
+    """
+    Store and display experiment results.
+    """
+
+    def __init__(self, dataset_name: str, save_dir: str):
+        self.dataset_name = dataset_name
+        self.save_dir = save_dir
+        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.graph_stats = {}
+        self.retrieval_results = {}
+        self.qa_results = {}
+        self.query_details = []
+        self.config = {}
+
+    def set_graph_stats(self, stats: Dict):
+        """Set graph statistics"""
+        self.graph_stats = stats
+
+    def set_config(self, config: Dict):
+        """Set configuration used"""
+        self.config = config
+
+    def set_retrieval_results(self, results: Dict[str, float]):
+        """Set retrieval evaluation results"""
+        self.retrieval_results = results
+
+    def set_qa_results(self, em: float, f1: float):
+        """Set QA evaluation results"""
+        self.qa_results = {"exact_match": em, "f1_score": f1}
+
+    def add_query_detail(self, query: str, retrieved: List[str], gold: List[str] = None):
+        """Add detail for a single query"""
+        self.query_details.append({
+            "query": query,
+            "retrieved": retrieved[:3] if retrieved else [],  # Top 3 for display
+            "gold": gold[:3] if gold else [],
+            "num_retrieved": len(retrieved) if retrieved else 0
+        })
+
+    def print_summary(self):
+        """Print a formatted summary of results"""
+        print("\n" + "=" * 80)
+        print("EXPERIMENT RESULTS SUMMARY")
+        print("=" * 80)
+
+        print(f"\nDataset: {self.dataset_name}")
+        print(f"Timestamp: {self.timestamp}")
+
+        # Graph Statistics
+        print("\n" + "-" * 40)
+        print("Graph Statistics:")
+        print("-" * 40)
+        for key, value in self.graph_stats.items():
+            print(f"  {key}: {value}")
+
+        # Retrieval Results
+        if self.retrieval_results:
+            print("\n" + "-" * 40)
+            print("Retrieval Performance:")
+            print("-" * 40)
+            for key, value in sorted(self.retrieval_results.items()):
+                print(f"  {key}: {value:.4f}")
+
+        # QA Results
+        if self.qa_results:
+            print("\n" + "-" * 40)
+            print("QA Performance:")
+            print("-" * 40)
+            print(f"  Exact Match: {self.qa_results['exact_match']:.4f}")
+            print(f"  F1 Score: {self.qa_results['f1_score']:.4f}")
+
+        # Sample Query Details
+        if self.query_details:
+            print("\n" + "-" * 40)
+            print("Sample Query Results (first 3):")
+            print("-" * 40)
+            for i, detail in enumerate(self.query_details[:3]):
+                print(f"\n  Query {i+1}: {detail['query'][:60]}...")
+                print(f"  Retrieved {detail['num_retrieved']} chunks")
+                if detail['retrieved']:
+                    print(f"  Top result: {detail['retrieved'][0][:80]}...")
+
+        print("\n" + "=" * 80)
+
+    def save_to_file(self):
+        """Save results to JSON file"""
+        os.makedirs(self.save_dir, exist_ok=True)
+
+        results = {
+            "dataset": self.dataset_name,
+            "timestamp": self.timestamp,
+            "graph_stats": self.graph_stats,
+            "retrieval_results": self.retrieval_results,
+            "qa_results": self.qa_results,
+            "num_queries": len(self.query_details),
+            "config": self.config
+        }
+
+        # Save summary
+        summary_path = os.path.join(self.save_dir, "experiment_results.json")
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+
+        # Save detailed results
+        details_path = os.path.join(self.save_dir, "query_details.json")
+        with open(details_path, "w", encoding="utf-8") as f:
+            json.dump(self.query_details, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Results saved to {summary_path}")
+
+        return summary_path
+
+
+__all__ = ["RetrievalRecall", "QAExactMatch", "QAF1Score", "ExperimentResults"]

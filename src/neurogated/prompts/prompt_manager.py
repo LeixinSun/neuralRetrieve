@@ -64,12 +64,16 @@ Return JSON:
             },
             {
                 "role": "user",
-                "content": f"""Analyze the following query and assign weights (0.0-2.0) to each edge type based on the query's intent:
+                "content": f"""Instruction
+Analyze the following query and assign a weight between 0.0 and 2.0 to each of the three relationship types. These weights should reflect the relative emphasis that should be placed on each type when retrieving relevant materials to answer the query.
 
-- **SEQ (sequential/temporal)**: For queries about order, timeline, process, "what happened next"
-- **SIM (similarity/semantic)**: For queries about related concepts, analogies, "what is similar to"
-- **CAUSE (causal/logical)**: For queries about reasons, consequences, explanations, "why", "how does X affect Y"
-
+SEQ (Sequential/Temporal): For queries about order, sequence, timelines, or processes. Examples: "What happened next?", "List the steps to...", "Historical development of...".
+SIM (Similarity/Semantic): For queries about related concepts, analogies, or functional similarities. Examples: "What is similar to...?", "Other examples like...", "What falls under the same category?".
+CAUSE (Causal/Logical): For queries about reasons, effects, mechanisms, or explanations. Examples: "Why did...?", "How does X lead to Y?", "What is the impact of...?".
+Weight Guidelines
+0.0: This relationship type is largely irrelevant to the query's intent. Materials with this focus should not be prioritized.
+1.0: This relationship type is moderately relevant. Materials with this focus should be considered.
+2.0: This relationship type is central to the query's intent. Materials with this focus should be highly prioritized.
 Query: "{query}"
 
 Return JSON with weights and justification:

@@ -69,6 +69,9 @@ class MemoryConfig:
     CAUSE_NEIGHBOR_HOPS: int = 1
     """Number of hops for graph neighbor expansion in causal detection"""
 
+    SKIP_CAUSE_EDGES: bool = True
+    """Whether to skip CAUSE edge building (set to False to enable, but it's expensive)"""
+
     # ==================== Plasticity Parameters ====================
     HEBBIAN_LEARNING_RATE: float = 0.1
     """Weight increment for LTP (Long-Term Potentiation)"""
@@ -123,6 +126,15 @@ class MemoryConfig:
 
     embedding_dimension: int = 1536
     """Embedding vector dimension"""
+
+    embedding_return_as_normalized: bool = True
+    """Whether to normalize embeddings"""
+
+    embedding_max_seq_len: int = 2048
+    """Max sequence length for embedding model"""
+
+    azure_embedding_endpoint: Optional[str] = None
+    """Azure embedding endpoint URL (if using Azure OpenAI)"""
 
     # ==================== Storage Configuration ====================
     save_dir: str = "outputs"

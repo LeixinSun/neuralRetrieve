@@ -3,7 +3,8 @@ Simple test to verify the system works.
 """
 
 import logging
-from neurogated import NeuroGraphMemory, MemoryConfig
+import os
+from neurogated import NeuroGraphMemory, MemoryConfig, config_from_yaml
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,16 +14,28 @@ def test_basic_functionality():
     """Test basic system functionality"""
     logger.info("Testing Neuro-Gated Graph Memory System")
 
-    # Create config
-    config = MemoryConfig(
-        save_dir="outputs/test",
-        llm_name="gpt-4o-mini",
-        embedding_model_name="text-embedding-3-small",
-        TOP_K_ANCHORS=3,
-        TOP_N_RETRIEVAL=2,
-        MAX_HOPS=1,
-        force_index_from_scratch=True
-    )
+    # Load config from YAML file (includes API key)
+    config_path = "config.yaml"
+    if os.path.exists(config_path):
+        logger.info(f"Loading configuration from {config_path}")
+        config = config_from_yaml(config_path)
+        # Override some settings for test
+        config.save_dir = "outputs/test"
+        config.TOP_K_ANCHORS = 3
+        config.TOP_N_RETRIEVAL = 2
+        config.MAX_HOPS = 1
+        config.force_index_from_scratch = True
+    else:
+        logger.warning(f"Config file {config_path} not found, using defaults")
+        config = MemoryConfig(
+            save_dir="outputs/test",
+            llm_name="gpt-4o-mini",
+            embedding_model_name="text-embedding-3-small",
+            TOP_K_ANCHORS=3,
+            TOP_N_RETRIEVAL=2,
+            MAX_HOPS=1,
+            force_index_from_scratch=True
+        )
 
     # Initialize system
     logger.info("1. Initializing system...")

@@ -4,19 +4,19 @@
 # ==================== API配置 ====================
 api:
   # OpenAI API Key（必需）
-  openai_api_key: "your-openai-api-key-here"
+  openai_api_key: ""
 
   # LLM配置
   llm:
     name: "gpt-4o-mini"                    # LLM模型名称
-    base_url: null                         # 自定义API URL（null=使用默认OpenAI，例如：http://localhost:8000/v1）
+    base_url: ""                         # 自定义API URL（null=使用默认OpenAI，例如：http://localhost:8000/v1）
     temperature: 0.0                       # 采样温度（0.0-2.0）
     max_new_tokens: 2048                   # 最大生成token数
 
   # Embedding配置
   embedding:
     model_name: "text-embedding-3-small"   # Embedding模型名称
-    base_url: null                         # 自定义Embedding API URL
+    base_url: ""  # 自定义Embedding API URL
     batch_size: 32                         # 批处理大小
     dimension: 1536                        # 向量维度
 
@@ -48,6 +48,7 @@ graph:
   cause_edges:
     window_size: 5                         # 滑动窗口大小
     neighbor_hops: 1                       # 图邻居扩展跳数
+    skip: true                             # 是否跳过CAUSE边构建（设为false启用，但会增加LLM调用）
 
   # 节点类型配置
   nodes:
@@ -115,6 +116,5 @@ advanced:
 
   # 优化配置
   optimization:
-    skip_cause_edges: false                # 是否跳过CAUSE边构建（加速）
     use_cache_aggressively: true           # 是否积极使用缓存
     batch_llm_calls: true                  # 是否批量调用LLM

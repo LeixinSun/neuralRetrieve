@@ -167,9 +167,18 @@ class IngestionEngine:
                 self.graph_store.add_edge(edge)
             stats["sim_edges_created"] += len(entity_sim_edges)
 
-        # Step 6: Build CAUSE edges (optional, can be expensive)
-        # For now, skip CAUSE edges to speed up ingestion
-        # TODO: Add CAUSE edge building as optional step
+        # Step 6: Build CAUSE edges (optional, controlled by config)
+        if not self.config.SKIP_CAUSE_EDGES:
+            all_nodes = chunk_nodes + entity_nodes
+            existing_nodes = list(self.graph_store.nodes.values())
+            # Filter out nodes we just added
+            existing_nodes = [n for n in existing_nodes if n.id not in [node.id for node in all_nodes]]
+
+            if all_nodes:
+                cause_edges = self.edge_builder.build_cause_edges(all_nodes, existing_nodes)
+                for edge in cause_edges:
+                    self.graph_store.add_edge(edge)
+                stats["cause_edges_created"] = len(cause_edges)
 
         logger.info(f"Ingestion complete: {stats}")
 

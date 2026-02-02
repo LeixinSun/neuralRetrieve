@@ -112,6 +112,28 @@ class GraphStore:
         """Get node by ID"""
         return self.nodes.get(node_id)
 
+    def get_edge(self, source_id: str, target_id: str, edge_type: Optional[EdgeType] = None) -> Optional[MemoryEdge]:
+        """
+        Get edge between two nodes.
+
+        Args:
+            source_id: Source node ID
+            target_id: Target node ID
+            edge_type: Optional specific edge type to look for
+
+        Returns:
+            MemoryEdge if found, None otherwise
+        """
+        if edge_type is not None:
+            return self.edges.get((source_id, target_id, edge_type))
+
+        # Search for any edge type between these nodes
+        for etype in EdgeType:
+            edge = self.edges.get((source_id, target_id, etype))
+            if edge:
+                return edge
+        return None
+
     def get_neighbors(self, node_id: str, edge_type: Optional[EdgeType] = None) -> List[Tuple[str, MemoryEdge]]:
         """
         Get neighbors of a node.

@@ -5,10 +5,11 @@ Main entry point for running experiments with datasets.
 import argparse
 import logging
 import os
+import time
 from pathlib import Path
 
 from neurogated import NeuroGraphMemory, MemoryConfig, config_from_yaml
-from neurogated.evaluation import DatasetLoader, RetrievalRecall, QAExactMatch, QAF1Score
+from neurogated.evaluation import DatasetLoader, RetrievalRecall, QAExactMatch, QAF1Score, ExperimentResults
 
 # Setup logging
 logging.basicConfig(
@@ -44,6 +45,9 @@ def main():
     parser.add_argument("--top_k_anchors", type=int, default=None, help="Number of anchor nodes")
     parser.add_argument("--top_n_retrieval", type=int, default=None, help="Number of results to return")
     parser.add_argument("--max_hops", type=int, default=None, help="Maximum hops for spreading activation")
+
+    # Evaluation arguments
+    parser.add_argument("--max_queries", type=int, default=None, help="Maximum number of queries to evaluate (None=all)")
 
     args = parser.parse_args()
 
@@ -82,9 +86,16 @@ def main():
     config.save_dir = save_dir
     config.verbose = True
 
+    # Initialize experiment results
+    results = ExperimentResults(args.dataset, save_dir)
+    results.set_config(config.to_dict())
+
     # Initialize system
     logger.info("\n1. Initializing system...")
+    init_start = time.time()
     memory = NeuroGraphMemory(config)
+    init_time = time.time() - init_start
+    logger.info(f"   Initialization time: {init_time:.2f}s")
 
     # Load dataset
     logger.info("\n2. Loading dataset...")
@@ -104,6 +115,7 @@ def main():
 
     # Index documents
     logger.info("\n3. Indexing documents...")
+    index_start = time.time()
     formatted_docs = dataset_loader.format_documents(corpus)
 
     for i, (text, doc_id) in enumerate(formatted_docs):
@@ -114,36 +126,68 @@ def main():
         except Exception as e:
             logger.error(f"  Failed to index document {doc_id}: {e}")
 
+    index_time = time.time() - index_start
+    logger.info(f"   Total indexing time: {index_time:.2f}s")
+
     # Show graph stats
     logger.info("\n4. Graph statistics:")
     stats = memory.get_stats()
     for key, value in stats.items():
         logger.info(f"  {key}: {value}")
+    results.set_graph_stats(stats)
 
     # Save after indexing
     memory.save()
 
     # Retrieve for queries
     logger.info("\n5. Running retrieval...")
+    retrieve_start = time.time()
     retrieved_docs = []
 
-    for i, query in enumerate(queries[:10]):  # Limit to first 10 for demo
-        logger.info(f"  Query {i+1}/{len(queries[:10])}: {query[:80]}...")
+    # Limit queries if specified
+    max_queries = args.max_queries if args.max_queries else len(queries)
+    eval_queries = queries[:max_queries]
+    eval_gold_docs = gold_docs[:max_queries] if gold_docs else None
+    eval_gold_answers = gold_answers[:max_queries] if gold_answers else None
+
+    for i, query in enumerate(eval_queries):
+        logger.info(f"  Query {i+1}/{len(eval_queries)}: {query[:60]}...")
         try:
-            results = memory.retrieve(query)
-            retrieved_docs.append(results)
-            logger.debug(f"  Retrieved {len(results)} chunks")
+            query_results = memory.retrieve(query)
+            retrieved_docs.append(query_results)
+            results.add_query_detail(
+                query,
+                query_results,
+                eval_gold_docs[i] if eval_gold_docs else None
+            )
+            logger.debug(f"  Retrieved {len(query_results)} chunks")
         except Exception as e:
             logger.error(f"  Retrieval failed: {e}")
             retrieved_docs.append([])
 
-    # Evaluate retrieval
-    if gold_docs:
-        logger.info("\n6. Evaluating retrieval...")
-        recall = RetrievalRecall.compute(retrieved_docs, gold_docs[:10])
-        logger.info(f"  Retrieval Recall: {recall:.4f}")
+    retrieve_time = time.time() - retrieve_start
+    logger.info(f"   Total retrieval time: {retrieve_time:.2f}s")
 
-    # TODO: QA evaluation (requires QA module)
+    # Evaluate retrieval (aligned with HippoRAG format)
+    logger.info("\n6. Evaluating retrieval...")
+    if eval_gold_docs:
+        # Use same k_list as HippoRAG
+        k_list = [1, 2, 5, 10, 20, 30, 50, 100]
+        # Filter k values that make sense for our retrieval count
+        max_retrieved = max(len(docs) for docs in retrieved_docs) if retrieved_docs else 0
+        k_list = [k for k in k_list if k <= max(max_retrieved, config.TOP_N_RETRIEVAL * 2)]
+        if not k_list:
+            k_list = [1, 2, 3]
+
+        recall_at_k = RetrievalRecall.compute_at_k(retrieved_docs, eval_gold_docs, k_list)
+
+        # Format output like HippoRAG
+        logger.info(f"   Evaluation results for retrieval: {recall_at_k}")
+        results.set_retrieval_results(recall_at_k)
+
+        # Also show simple recall
+        simple_recall = RetrievalRecall.compute(retrieved_docs, eval_gold_docs)
+        logger.info(f"   Overall Recall: {simple_recall:.4f}")
 
     # Run maintenance
     logger.info("\n7. Running maintenance...")
@@ -152,6 +196,19 @@ def main():
     # Final save
     logger.info("\n8. Saving system...")
     memory.save()
+
+    # Save and print results
+    results.save_to_file()
+    results.print_summary()
+
+    # Print timing summary
+    logger.info("\n" + "-" * 40)
+    logger.info("Timing Summary:")
+    logger.info("-" * 40)
+    logger.info(f"  Initialization: {init_time:.2f}s")
+    logger.info(f"  Indexing: {index_time:.2f}s")
+    logger.info(f"  Retrieval: {retrieve_time:.2f}s")
+    logger.info(f"  Total: {init_time + index_time + retrieve_time:.2f}s")
 
     logger.info("\n" + "=" * 80)
     logger.info("Experiment completed!")

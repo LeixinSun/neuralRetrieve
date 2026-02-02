@@ -88,6 +88,7 @@ def config_from_yaml(yaml_path: str = "config.yaml"):
         if 'cause_edges' in graph:
             params['CAUSE_WINDOW_SIZE'] = graph['cause_edges'].get('window_size')
             params['CAUSE_NEIGHBOR_HOPS'] = graph['cause_edges'].get('neighbor_hops')
+            params['SKIP_CAUSE_EDGES'] = graph['cause_edges'].get('skip', True)
 
         if 'nodes' in graph:
             params['USE_ENTITY_NODES'] = graph['nodes'].get('use_entity_nodes')
