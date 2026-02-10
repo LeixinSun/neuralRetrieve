@@ -7,6 +7,7 @@ wheels/
 *.egg-info
 
 refer/
+refer.zip
 # Virtual environments
 .venv
 venv/
